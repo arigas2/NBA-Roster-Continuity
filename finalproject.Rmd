@@ -1,0 +1,319 @@
+---
+title: "Studying NBA Roster Continuity and Team Success"
+author: "Andrew Rigas"
+date: "May 16, 2018"
+output: html_document
+---
+
+```{r setup, results = "hide", message = FALSE, warning = FALSE, echo = FALSE}
+#knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(kimisc)
+library(ggplot2)
+
+nba <- read.csv("nbahistoricalwrostercontinuity.csv")
+
+nba <- nba %>%
+  mutate(Next.RC = ifelse(lag(Team) == Team, lag(Roster.Continuity), NA)) %>%
+  mutate(Next.WP = ifelse(lag(Team) == Team, lag(WP), NA)) %>%
+  mutate(Next.WPR = ifelse(lag(Team) == Team, lag(WP)/WP, NA))
+
+
+nba <- nba %>%
+  mutate(MadePlayoffs = ifelse(Playoffs == "", 0, 1))
+
+nba2 <- subset(nba, !is.na(Next.RC))
+nba2[,1] <- seq(1:1388)
+
+spurs1997 <- filter(nba2, Team == "SAS") %>%
+  filter(Season >= 1997)
+
+nbas97 <- filter(nba2, Team != "SAS") %>%
+  filter(Season >= 1997)
+
+era1 <- nba2 %>%
+  filter(Season >= 1951 & Season <= 1961)
+era2 <- nba2 %>%
+  filter(Season >= 1962 & Season <= 1972)
+era3 <- nba2 %>%
+  filter(Season >= 1973 & Season <= 1983)
+era4 <- nba2 %>%
+  filter(Season >= 1984 & Season <= 1994)
+era5 <- nba2 %>%
+  filter(Season >= 1995 & Season <= 2005)
+era6 <- nba2 %>%
+  filter(Season >= 2006 & Season <= 2016)
+
+#Upper 5%
+toprc <- head(arrange(nba2, desc(Next.RC)), 70)
+
+worst.toprc <- toprc %>%
+  filter(WP <= .5)
+
+under500 <- nba2 %>%
+  filter(WP <= .5) %>%
+  filter(Next.RC < .92)
+```
+
+
+# Introduction: 
+
+This project uses data describing roster continuity in the National Basketball Association (NBA) from the 1952-53 season until the 2017-18 season. Basketball Reference calculates roster continuity as the percentage of a team's regular season minutes that were filled by players from the previous season's roster. To give the simplest example, if five players played every minute of every game in a season for a team, and those players were on last season's roster, then that team's roster continuity would be 100%.
+
+In order to study this statistic and its potential relationship to team performance, I combined these data with data also scrapped from Basketball Reference that detailed every team's record, playoff performance, and other performance markers like Offensive and Defensive Rating and Simple Rating System (SRS) ratings over the same time period.
+
+Originally I planned to test the notion in team sports that teams improve over time as they play more together. They develop team chemistry as players get to know each other better. But I realized that this was the wrong way to use these roster continuity data, for reasons that I will discuss in the methods and results of this report.
+
+Roster continuity measures how teams build their rosters from season-to-season. So these data raise questions about how teams build their rosters, and this report attempts to answer these questions:
+
+1. Were there similar levels of turnover in different eras of the NBA?
+2. Have the San Antonio Spurs had a higher roster continuity than average recently?
+3. Does a team's success in one season predict how much its roster changes in the next season?
+4. Can any pattern be detected between high roster continuity and improvement be detected? Or patterns roster upheaval and change in record?
+
+
+
+# Methods:
+
+As stated in the introduction, I originally planned to study in detail how roster continuity related to and predicted future success. When I began to explore the data I realized roster continuity looked at roster makeup from a macro-level.
+
+```{r}
+plot(nba$Roster.Continuity, nba$Winning.Percentage.ratio)
+
+```
+
+I originally wanted to explore if roster continuity (meaning that the teams returned a high percentage of minutes played from the previous season) showed correlation with improvement from one season to the next. I created a new variable, winning percentage ratio (which was calculated as  current season winning percentage/previous season winning percentage), to try to determine whether a team's roster continuity was related to a change in winning percentage from the previous season to the current season.
+
+winning percentage ratio = $\frac{current season winning percentage}{previous season winning percentage}$
+
+This plot demonstrates that there is no relationship between roster continuity and winning percentage ratio as considered here.
+
+A trend emerges from this graph: as roster continuity increases, winning percentage ratio converges to one, which makes sense. If a team returns many of the same players from one season to the next, that team is more likely to have a similar record in the second season than a team that returns fewer players. From this observation, I realized that my original hypothesis could not be tested with these data. Improvements arising from roster continuity would be incremental and would not happen in one season, which these data represent.
+
+Roster continuity is a good measure of how teams build their rosters from season-to-season, so my research turned to how front offices built their rosters.
+
+
+To consider whether roster continuity has changed league-wide over time, I divided the 66 years of data into six eras of 11 years, then conducted permutation tests with 5% significance levels between each of the consecutive eras to determine whether there were statistically significant differences. I used permutation tests because they can be used regardless of whether the data are a sample or a population themselves (which these data are). A two-sample t-test is used on samples, not populations. It must be noted that there were fewer teams in each of the earlier eras, since the NBA grew gradually from eight teams in 1952, to nine in 1962, to 17 in 1972, to 24 in 1981, to 30 in 2005, so the number of observations grew accordingly in each of the six eras.
+
+The San Antonio Spurs have been a model of consistency since they drafted Tim Duncan in 1997. I conducted another permutation test to compare the Spurs' roster continuities since Duncan's first year in the NBA with the rest of the league's.
+
+I used a formal hypothesis test to examine the relationship between winning percentage one season and roster continuity the next. This captures how performance one season affects a team's decisions about next season's roster.
+
+The original interest of this research was teams that stayed together, high roster continuities. So I examined the top 5% of teams' next seasons' roster continuities, which was seventy teams with next season roster continuities between 92% and 100%. The correlation from the previous focus does not hold here, but seemingly interesting trends about improvement emerge in these specific data. To examine whether this trend is statistically significant, I used another permutation test to compare the proportions of teams' with high next season roster continuities but were bad the season before and all other bad teams.
+
+
+
+# Results:
+
+```{r, results = "hide", message = FALSE, warning = FALSE, echo = FALSE}
+
+mean(era1$Next.RC) - mean(era2$Next.RC)
+mean(era2$Next.RC) - mean(era3$Next.RC)
+mean(era3$Next.RC) - mean(era4$Next.RC)
+mean(era4$Next.RC) - mean(era5$Next.RC)
+mean(era5$Next.RC) - mean(era6$Next.RC)
+```
+
+## Roster Continuity in Six Eras
+
+Era 1: 1951/52 to 1961/62: Roster Continuity Average: 71.6%
+
+Era 2: 1962/63 to 1972/73: Roster Continuity Average: 73.3%
+
+Era 3: 1973/74 to 1983/84: Roster Continuity Average: 68.8%
+
+Era 4: 1984/85 to 1994/95: Roster Continuity Average: 71.9%
+
+Era 5: 1995/96 to 2005/06: Roster Continuity Average: 65.8%
+
+Era 6: 2006/07 to 2016/17: Roster Continuity Average: 65.2%
+
+To consider whether roster continuity has changed league-wide over time, I divided the 66 years of data into six eras of 11 years, then conducted permutation tests with 5% significance levels between each of the consecutive eras to determine whether there were statistically significant differences.
+
+For each permutation test:
+
+$\mu_1$ = Roster Continuity Average of a given era (1-6)
+$\mu_2$ = Roster Continuity Average of a given era, except $\mu_1$
+
+
+
+**H~0~**: $\mu_1$ = $\mu_2$
+
+**H~A~**: $\mu_1$ $\neq$ $\mu_2$
+
+
+
+
+
+```{r, message = FALSE, warning = FALSE, echo = FALSE}
+
+set.seed(539)
+p <- NULL
+for (i in 0:4) {
+  first <- nba2 %>%
+    filter(Season >= (1951+i*11) & Season <= (1961+i*11))
+  second <- nba2 %>%
+    filter(Season >= (1951+(i+1)*11) & Season <= (1961+(i+1)*11))
+  stat <- mean(first$Next.RC) - mean(second$Next.RC)
+  mean.diff <- NULL
+  pooled.between <- c(first$Next.RC, second$Next.RC)
+  for (j in 1:1000) {
+    sample.first <- sample(pooled.between, nrow(first))
+    sample.second <- pooled.between[-sample.first]
+    mean.diff[j] <- mean(sample.first) - mean(sample.second)
+  }
+  p[i+1] <- sum(abs(mean.diff) >= abs(stat))/1000
+}
+
+p
+```
+### Results of Permutation Test
+ 
+The difference of roster continuity means between the eras 1 and 2 is: -1.7%. Conducting a permutation test on the difference in means produces a p-value of 0.15. The difference in means between the first two eras is statistically insignificant with a p-value above the significance level threshold.
+
+The next three permutation tests yield significant results. The difference of roster continuity means between the eras 2 and 3 is: 4.5%. Conducting a permutation test on the difference in means produces a p-value of 0, zero times out of 10,000 was there a difference greater than the actual difference, meaning the difference is statistically significant.
+
+The difference of roster continuity means between the eras 3 and 4 is: -3.1%. Conducting a permutation test on the difference in means produces a p-value of 0, meaning the difference is statistically significant.
+
+
+The difference of roster continuity means between the eras 4 and 5 is: 6.1%. Conducting a permutation test on the difference in means produces a p-value of 0, meaning the difference is statistically significant.
+
+The difference of roster continuity means between the eras 5 and 6 is: 0.6%. Conducting a permutation test on the difference in means produces a p-value of 0.37, meaning the difference is not statistically significant.
+
+
+## San Antonio Spurs
+
+Since 1998, the Spurs average roster continuity has been 78%, 12.8% greater than the rest of the league's average over that time period. To compare the roster continuities of the Spurs from 1998 until the present with the roster continuities of the rest of the NBA, I conduct a permutation test with a 5% significance level on average roster continuity.
+
+For the permutation test:
+
+$\mu_1$ = Roster Continuity Average of San Antonio Spurs from 1998 until the present
+$\mu_2$ = Roster Continuity Average of the rest of the NBA during the same time period
+
+
+
+**H~0~**: $\mu_1$ = $\mu_2$
+
+**H~A~**: $\mu_1$ $\neq$ $\mu_2$
+
+
+```{r, message = FALSE, warning = FALSE, echo = FALSE}
+spurs1997 <- filter(nba2, Team == "SAS") %>%
+  filter(Season >= 1997)
+
+nbas97 <- filter(nba2, Team != "SAS") %>%
+  filter(Season >= 1997)
+
+test.spurs <- mean(spurs1997$Next.RC) - mean(nbas97$Next.RC)
+spurs.diff <- NULL
+set.seed(73)
+s.1997 <- c(spurs1997$Next.RC, nbas97$Next.RC)
+for (i in 1:10000) {
+  sas <- sample(s.1997, nrow(spurs1997))
+  rest <- s.1997[-sas]
+  spurs.diff[i] <- mean(sas) - mean(rest)
+}
+sum(abs(spurs.diff) >= abs(test.spurs))/10000
+```
+### Results of Permutation Test
+
+In the permutation test, the difference in means between the Spurs sample and the rest of the league sample was greater than the actual difference in means two times (p-value = .0002). The difference between the Spurs' average roster continuity and the rest of the league's since the 1998/98 season is almost certainly not random, substantiating the claim that the Spurs have been a model of consistency by the roster continuity metric.
+
+
+
+## Winning Percentage and Next Season's Roster Continuity
+
+To investigate how teams build their rosters each season, I examined whether a team's winning percentage one season affected its roster makeup the next.
+```{r, message = FALSE, warning = FALSE, echo = FALSE}
+plot(nba2$WP, nba2$Next.RC)
+
+cor.test(nba2$WP, nba2$Next.RC)
+```
+
+This plot suggests there may be some relationship between winning percentage and next season's roster continuity. A formal hypothesis test supports the claim that there is a relationship between winning percentage and next season's roster continuity. Tested against the null hypothesis that the correlation coefficient equals zero, the test states that the correlation coefficient is 0.4590301 within a 95 percent confidence interval (0.4164725, 0.4995805).
+
+According to this plot and test, a team that did well one season is more likely to keep more of its roster than a team that didn't do as well.
+
+And this holds true since the 1951-52 season, the year before there is roster continuity data (this is possible because there are data for winning percentages from the 51-52 season, and roster continuity is only needed for the next season). Using the six eras defined earlier and performing the same analyses yields:
+
+```{r, message = FALSE, warning = FALSE, echo = FALSE}
+plot(era1$WP, era1$Next.RC)
+cor(era1$WP, era1$Next.RC)
+
+plot(era2$WP, era2$Next.RC)
+cor(era2$WP, era2$Next.RC)
+
+plot(era3$WP, era3$Next.RC)
+cor(era3$WP, era3$Next.RC)
+
+plot(era4$WP, era4$Next.RC)
+cor(era4$WP, era4$Next.RC)
+
+plot(era5$WP, era5$Next.RC)
+cor(era5$WP, era5$Next.RC)
+
+plot(era6$WP, era6$Next.RC)
+cor(era6$WP, era6$Next.RC)
+```
+
+Although there are fewer observations in the earlier eras, the p-values are still very low in the tests of the eras from 1951/52-1961/62 and 1962/63-1972/73. Each of these plots and tests produce similar visuals and correlation coefficients, suggesting this relationship has existed throughout the history of the NBA.
+
+
+
+## Teams that Stay Together
+
+The original interest of this research was teams that stayed together (teams with high roster continuities). So I examined the teams with the top 5% of next seasons' roster continuities, which was seventy teams with next season roster continuities between 92% and 100%.
+```{r, message = FALSE, warning = FALSE, echo = FALSE}
+
+plot(toprc$WP, toprc$Next.RC)
+
+
+```
+
+This plot demonstrates that there is no relationship between winning percentage and next season's roster continuity in this population, unlike in the entire population.
+
+What is remarkable here are the 10 teams that were under .500 then most of its minutes the next season were played by players from that under .500 team. Out of those 10 teams, 9 of them had a higher winning percentage the next season.
+
+```{r, message = FALSE, warning = FALSE, echo = FALSE}
+
+test.prop <- .9 - .651
+prop.diff <- NULL
+under500p <- c(under500$Next.WPR, worst.toprc$Next.WPR)
+set.seed(10)
+for (i in 1:10000) {
+  high <- sample(under500p, 10)
+  notso <- under500p[-high]
+  prop.diff[i] <- sum(high > 1)/10 - sum(notso > 1)/668
+}
+
+hist(prop.diff)
+sum(abs(prop.diff) >= abs(test.prop))/10000
+```
+
+90% of teams that were under .500 one season but had roster continuities at or above 92% the next season had a better record that next season. That is 24.9% better than the proportion of all under .500 teams that improved the next season. But a permutation test on the difference in proportion is not statistically significant, a greater difference happens by random almost 11% percent of the time. That is to say that teams that were under .500 improve more often than not. The fact that these teams had high roster continuities from the losing season to the next does not have bearing on whether they improved, according to this test. Once again, roster continuity and resulting success were not related.
+
+
+# Conclusions
+
+To return to the formal research questions guiding this report:
+
+1. Were there similar levels of turnover in different eras of the NBA?
+2. Have the San Antonio Spurs had a higher roster continuity than average recently?
+3. Does a team's success in one season predict how much its roster changes in the next season?
+4. Can any pattern be detected between high roster continuity and improvement be detected? Or patterns roster upheaval and change in record?
+
+Roster continuity differs, in a statistically significant fashion, three times between the six defined eras. However, roster continuity trends neither in the negative or positive direction the entire time; rather it fluctuates up and down. On the whole, roster continuity has decreased from its first calculation in the 1950s until the present. Additionally, different trends in the league seem to cause the statistic to change directions.
+
+From a team perspective, permutation testing suggests that the San Antonio Spurs' roster continuity since 1997 upholds its reputation as a model of consistency, demonstrating that roster continuity certainly varies from team-to-team, as well as by time.
+
+Using Roster Continuity on the complete data revealed a correlation between winning percentage one season and roster continuity the next. At this high level, a team's record one season correlates to how much of its roster returns next season. If a team does well, they will keep more of their players from that roster than a team that does poorly.
+
+This correlation breaks down in smaller sample sizes, possibly for a number of reasons. In a small sample size, variation is more apparent. Additionally, these data indicate that similar roster continuities result from different winning percentages. Teams that did poorly and teams that did well have very high roster continuities the next season.
+
+What seemed to be interesting was that 90% of teams that were under .500 and had next season roster continuities above 92% improved the next season. That proportion is almost 25% greater than all other teams that were under .500 and improved the next season. But a permutation test revealed that difference definitely could have occurred randomly. Teams that lose more than they win one season tend to do better the next season, regardless of whether they have high roster continuity from one season to the next.
+
+This result reinforces the idea that the roster continuity metric is related to success from season to season. This is in large part because studying success at this high level is difficult. The better predictor of success from season-to-season than roster continuity is the previous season's winning percentage. And from this level, winning percentage one season also correlates to roster continuity the next.
+
+These results leave individual questions that cannot be answered with these data. For example, why did the New York Knicks have a 92% roster continuity the year after they went 30-52? How about the Denver Nuggets, who went 37-45, then had a 100% roster continuity, went 46-36, and made the playoffs the next season. Roster continuity demonstrates broad trends about how teams build their rosters from season-to-season. It captures individual trends in improvement, but is not correlated with improvement using these parameters. Roster continuity can tell interesting stories about how the league has changed over time and demonstrate trends about individual teams.
+
+
