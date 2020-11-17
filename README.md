@@ -8,4 +8,4 @@ The data used in this project can be found at [Basketball Reference](https://www
 
 ## Report
 
-The report can be viewed at this link:
+The report can be viewed at this link: https://arigas2.github.io/NBA-Roster-Continuity/report.html
